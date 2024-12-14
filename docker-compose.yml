@@ -1,0 +1,82 @@
+version: "3.8"
+
+services:
+  payment:
+    image: payment
+    container_name: payment
+    ports:
+      - "50051:50051"
+    networks:
+      - app-network
+    depends_on:
+      - redis
+      - notification
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+  orders:
+    image: orders
+    container_name: orders
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+    depends_on:
+      - payment
+    environment:
+      - NODE_ENV=production
+      - PAYMENT=payment:50051
+
+  delivery:
+    image: delivery
+    container_name: delivery
+    ports:
+      - "3001:3001"
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=production
+
+  scheduler:
+    image: scheduler
+    container_name: scheduler
+    ports:
+      - "3002:3002"
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=production
+      - OUTBOX=http://orders:3000
+      - DELIVERY=http://delivery:3002
+    depends_on:
+      - payment
+      - orders
+      - delivery
+
+  notification:
+    image: notification
+    container_name: notification
+    ports:
+      - "3020:3020"
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
